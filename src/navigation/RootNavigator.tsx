@@ -1,6 +1,8 @@
+import { ActivityIndicator, View } from 'react-native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import AppNavigator from './AppNavigator'
 import AuthNavigator from './AuthNavigator'
+import { selectIsAuthenticated, useAuthStore } from '../store/auth'
 
 type RootParamList = {
   Auth: undefined
@@ -9,13 +11,17 @@ type RootParamList = {
 
 const Root = createNativeStackNavigator<RootParamList>()
 
-// TODO: replace with real auth store check (Phase 1)
-function useIsAuthenticated() {
-  return false
-}
-
 export default function RootNavigator() {
-  const isAuthenticated = useIsAuthenticated()
+  const hydrated = useAuthStore((s) => s.hydrated)
+  const isAuthenticated = useAuthStore(selectIsAuthenticated)
+
+  if (!hydrated) {
+    return (
+      <View className="flex-1 items-center justify-center bg-gray-50">
+        <ActivityIndicator />
+      </View>
+    )
+  }
 
   return (
     <Root.Navigator screenOptions={{ headerShown: false }}>

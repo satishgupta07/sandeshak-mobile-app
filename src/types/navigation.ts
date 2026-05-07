@@ -6,6 +6,7 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs'
 export type AuthStackParamList = {
   Login: undefined
   Register: undefined
+  ForgotPassword: undefined
 }
 
 // ─── App Tabs ────────────────────────────────────────────────────────────────
@@ -26,6 +27,7 @@ export type ChatStackParamList = {
 
 export type LoginScreenProps = NativeStackScreenProps<AuthStackParamList, 'Login'>
 export type RegisterScreenProps = NativeStackScreenProps<AuthStackParamList, 'Register'>
+export type ForgotPasswordScreenProps = NativeStackScreenProps<AuthStackParamList, 'ForgotPassword'>
 export type ChatListScreenProps = NativeStackScreenProps<ChatStackParamList, 'ChatList'>
 export type ChatScreenProps = NativeStackScreenProps<ChatStackParamList, 'Chat'>
 export type ProfileScreenProps = BottomTabScreenProps<AppTabParamList, 'Profile'>
