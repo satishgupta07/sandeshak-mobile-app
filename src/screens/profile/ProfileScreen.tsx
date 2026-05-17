@@ -4,6 +4,7 @@ import * as ImagePicker from 'expo-image-picker'
 import { ApiError, api } from '../../lib/api'
 import { uploadFile } from '../../lib/upload'
 import { useAuthStore } from '../../store/auth'
+import { useChatStore } from '../../store/chat'
 import type { ApiResponse, UpdateProfileRequest, UserDTO } from '../../types'
 import type { ProfileScreenProps } from '../../types/navigation'
 
@@ -12,6 +13,7 @@ export default function ProfileScreen(_props: ProfileScreenProps) {
   const refreshToken = useAuthStore((s) => s.refreshToken)
   const setUser = useAuthStore((s) => s.setUser)
   const clear = useAuthStore((s) => s.clear)
+  const clearChat = useChatStore((s) => s.clear)
 
   const [name, setName] = useState(user?.name ?? '')
   const [bio, setBio] = useState(user?.bio ?? '')
@@ -111,6 +113,7 @@ export default function ProfileScreen(_props: ProfileScreenProps) {
         body: JSON.stringify({ refreshToken }),
       }).catch(() => {})
     }
+    clearChat()
     clear()
   }
 
