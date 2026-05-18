@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -9,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
+import { useHeaderHeight } from '@react-navigation/elements'
 import { ApiError, api } from '../../lib/api'
 import { getSocket } from '../../lib/socket'
 import { useAuthStore } from '../../store/auth'
@@ -86,6 +88,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const typingByConv = useChatStore((s) => s.typingByConv)
   const receiptsByMessage = useChatStore((s) => s.receiptsByMessage)
   const setActiveConversation = useChatStore((s) => s.setActiveConversation)
+
+  const headerHeight = useHeaderHeight()
 
   const conv = useMemo(
     () => conversations.find((c) => c.id === conversationId) ?? null,
@@ -217,6 +221,16 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     return () => clearTimeout(id)
   }, [messages.length])
 
+  // Pin the latest message to the bottom of the visible area when the keyboard
+  // opens, so the most recent reply isn't hidden behind the input.
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'
+    const sub = Keyboard.addListener(showEvent, () => {
+      listRef.current?.scrollToEnd({ animated: true })
+    })
+    return () => sub.remove()
+  }, [])
+
   const otherId = conv ? otherUserId(conv, currentUserId) : null
   const otherPresence = otherId ? (presence[otherId] ?? null) : null
   const typingUsers = typingByConv[conversationId] ?? []
@@ -232,8 +246,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-background"
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={headerHeight}
     >
       {(statusLine || !isConnected) && (
         <View className="flex-row items-center justify-between border-b border-border bg-surface px-4 py-1.5">
