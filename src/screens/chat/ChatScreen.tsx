@@ -13,6 +13,7 @@ import { ApiError, api } from '../../lib/api'
 import { getSocket } from '../../lib/socket'
 import { useAuthStore } from '../../store/auth'
 import { useChatStore, type ReceiptStatus } from '../../store/chat'
+import { colors } from '../../theme'
 import type { ConversationDTO, MessageDTO, PaginatedResponse } from '../../types'
 import type { ChatScreenProps } from '../../types/navigation'
 
@@ -25,8 +26,6 @@ function otherUserId(conv: ConversationDTO, currentUserId: string | undefined): 
   return conv.participants.find((p) => p.userId !== currentUserId)?.userId ?? null
 }
 
-// Direct: status from the single other participant. Group: 'read' only when
-// everyone has read, else 'delivered' if anyone received, else 'sent'.
 function deriveMessageStatus(
   conv: ConversationDTO,
   currentUserId: string | undefined,
@@ -45,11 +44,11 @@ function StatusTick({ status, ownIsBlue }: { status: MessageStatus; ownIsBlue: b
   const colorClass =
     status === 'read'
       ? ownIsBlue
-        ? 'text-sky-300'
-        : 'text-blue-500'
+        ? 'text-sky-200'
+        : 'text-primary'
       : ownIsBlue
-        ? 'text-blue-200'
-        : 'text-gray-400'
+        ? 'text-white/60'
+        : 'text-muted-foreground'
   return (
     <Text className={`ml-1 text-[10px] ${colorClass}`} accessibilityLabel={status}>
       {isDouble ? '✓✓' : '✓'}
@@ -67,6 +66,13 @@ function formatLastSeen(iso: string | null): string {
     hour: 'numeric',
     minute: '2-digit',
   })}`
+}
+
+function formatTime(iso: string | undefined | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
 }
 
 export default function ChatScreen({ route, navigation }: ChatScreenProps) {
@@ -91,7 +97,6 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const [historyError, setHistoryError] = useState<string | null>(null)
   const listRef = useRef<FlatList<MessageDTO>>(null)
 
-  // Typing-emit state — ref so changes don't re-render.
   const typingRef = useRef<{
     emittedConvId: string | null
     timer: ReturnType<typeof setTimeout> | null
@@ -99,8 +104,6 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
 
   const loading = messagesByConv[conversationId] === undefined && historyError === null
 
-  // Track active conversation in the store so the header on ChatList can
-  // highlight it if we ever surface that. Reset on unmount.
   useEffect(() => {
     setActiveConversation(conversationId)
     return () => {
@@ -108,14 +111,12 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     }
   }, [conversationId, setActiveConversation])
 
-  // Fetch history once per conversation
   useEffect(() => {
     if (messagesByConv[conversationId]) return undefined
     let cancelled = false
     api<PaginatedResponse<MessageDTO>>(`/conversations/${conversationId}/messages?page=1&limit=50`)
       .then((res) => {
         if (cancelled) return
-        // Server returns newest-first; reverse to oldest → newest for the feed.
         setMessages(conversationId, [...res.data].reverse())
       })
       .catch((err) => {
@@ -127,7 +128,6 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     }
   }, [conversationId, messagesByConv, setMessages])
 
-  // Mark latest other-sender message as read whenever it changes.
   const latestMessage = messages.length > 0 ? messages[messages.length - 1] : null
   const latestMessageId = latestMessage?.id ?? null
   const latestSenderId = latestMessage?.senderId ?? null
@@ -139,8 +139,6 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     socket.emit('message:read', { conversationId, messageId: latestMessageId })
   }, [conversationId, latestMessageId, latestSenderId, currentUserId])
 
-  // Stop typing on unmount / conv change so the other side doesn't see a
-  // stuck "typing…".
   useEffect(() => {
     const state = typingRef.current
     return () => {
@@ -156,7 +154,6 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     }
   }, [conversationId])
 
-  // Update the screen header title once we know the display name.
   const headerTitle = useMemo(() => {
     if (!conv) return route.params.title
     if (conv.type === 'group') return conv.name ?? 'Group'
@@ -212,7 +209,6 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     emitTypingStop()
   }
 
-  // Auto-scroll to bottom on new message
   useEffect(() => {
     if (messages.length === 0) return
     const id = setTimeout(() => {
@@ -231,38 +227,45 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   else if (otherPresence?.isOnline) statusLine = 'Online'
   else if (otherPresence) statusLine = formatLastSeen(otherPresence.lastSeen)
 
+  const statusActive = showTyping || Boolean(otherPresence?.isOnline)
+
   return (
     <KeyboardAvoidingView
-      className="flex-1 bg-gray-50"
+      className="flex-1 bg-background"
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
-      <View className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-2">
-        <View className="flex-1">
-          {statusLine && (
-            <Text
-              className={`text-xs ${
-                showTyping || otherPresence?.isOnline ? 'text-green-600' : 'text-gray-500'
-              }`}
-            >
+      {(statusLine || !isConnected) && (
+        <View className="flex-row items-center justify-between border-b border-border bg-surface px-4 py-1.5">
+          {statusLine ? (
+            <Text className={`text-xs ${statusActive ? 'text-success' : 'text-muted-foreground'}`}>
               {statusLine}
             </Text>
+          ) : (
+            <View />
+          )}
+          {!isConnected && (
+            <View className="rounded-full bg-warning/15 px-2.5 py-0.5">
+              <Text className="text-[11px] font-medium text-warning">Reconnecting…</Text>
+            </View>
           )}
         </View>
-        {!isConnected && <Text className="text-xs text-amber-600">Reconnecting…</Text>}
-      </View>
+      )}
 
       <View className="flex-1">
         {loading && (
           <View className="flex-1 items-center justify-center">
-            <ActivityIndicator />
+            <ActivityIndicator color={colors.primary} />
           </View>
         )}
         {historyError && (
-          <Text className="p-4 text-center text-sm text-red-600">{historyError}</Text>
+          <Text className="p-4 text-center text-sm text-destructive">{historyError}</Text>
         )}
         {!loading && !historyError && messages.length === 0 && (
-          <Text className="p-4 text-center text-sm text-gray-400">No messages yet. Say hi!</Text>
+          <View className="flex-1 items-center justify-center px-6">
+            <Text className="text-3xl">👋</Text>
+            <Text className="mt-2 text-sm text-muted-foreground">No messages yet. Say hi!</Text>
+          </View>
         )}
         {!loading && !historyError && messages.length > 0 && (
           <FlatList
@@ -271,23 +274,46 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
             keyExtractor={(m) => m.id}
             contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 12 }}
             onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
-            renderItem={({ item }) => {
+            renderItem={({ item, index }) => {
               const isOwn = item.senderId === currentUserId
               const status =
                 isOwn && conv
                   ? deriveMessageStatus(conv, currentUserId, receiptsByMessage[item.id])
                   : null
+              const prev = messages[index - 1]
+              const next = messages[index + 1]
+              const prevSame = prev?.senderId === item.senderId
+              const nextSame = next?.senderId === item.senderId
+              const time = formatTime(item.createdAt)
               return (
                 <View
-                  className={`mb-2 max-w-[80%] rounded-lg px-3 py-2 ${
-                    isOwn ? 'self-end bg-blue-600' : 'self-start bg-white'
+                  className={`${nextSame ? 'mb-1' : 'mb-2'} max-w-[80%] px-3.5 py-2 ${
+                    isOwn ? 'self-end bg-bubble-own' : 'self-start bg-bubble-peer'
                   }`}
-                  style={!isOwn ? { elevation: 1 } : undefined}
+                  style={{
+                    borderTopLeftRadius: isOwn ? 18 : prevSame ? 6 : 18,
+                    borderTopRightRadius: isOwn ? (prevSame ? 6 : 18) : 18,
+                    borderBottomLeftRadius: isOwn ? 18 : nextSame ? 6 : 18,
+                    borderBottomRightRadius: isOwn ? (nextSame ? 6 : 18) : 18,
+                  }}
                 >
-                  <View className="flex-row items-end">
-                    <Text className={`text-sm ${isOwn ? 'text-white' : 'text-gray-900'}`}>
-                      {item.content ?? ''}
-                    </Text>
+                  <Text
+                    className={`text-sm leading-relaxed ${
+                      isOwn ? 'text-bubble-own-foreground' : 'text-bubble-peer-foreground'
+                    }`}
+                  >
+                    {item.content ?? ''}
+                  </Text>
+                  <View className="mt-0.5 flex-row items-center justify-end">
+                    {time !== '' && (
+                      <Text
+                        className={`text-[10px] ${
+                          isOwn ? 'text-white/60' : 'text-muted-foreground'
+                        }`}
+                      >
+                        {time}
+                      </Text>
+                    )}
                     {status && <StatusTick status={status} ownIsBlue={isOwn} />}
                   </View>
                 </View>
@@ -297,24 +323,28 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         )}
       </View>
 
-      <View className="flex-row items-center gap-2 border-t border-gray-200 bg-white p-2">
-        <TextInput
-          value={draft}
-          onChangeText={onDraftChange}
-          onBlur={emitTypingStop}
-          placeholder="Type a message…"
-          multiline
-          maxLength={8000}
-          className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900"
-          style={{ maxHeight: 120 }}
-        />
+      <View className="flex-row items-end gap-2 border-t border-border bg-surface px-3 py-2.5">
+        <View className="flex-1 rounded-3xl border border-border bg-surface-2 px-4 py-2.5">
+          <TextInput
+            value={draft}
+            onChangeText={onDraftChange}
+            onBlur={emitTypingStop}
+            placeholder="Message"
+            placeholderTextColor={colors.mutedForeground}
+            multiline
+            maxLength={8000}
+            className="text-sm text-foreground"
+            style={{ maxHeight: 120, minHeight: 22 }}
+          />
+        </View>
         <Pressable
           onPress={onSend}
           disabled={!draft.trim() || !isConnected}
-          className="rounded-md bg-blue-600 px-4 py-2 active:bg-blue-700"
+          accessibilityLabel="Send message"
+          className="h-11 w-11 items-center justify-center rounded-full bg-primary active:bg-primary-hover"
           style={{ opacity: !draft.trim() || !isConnected ? 0.5 : 1 }}
         >
-          <Text className="text-sm font-medium text-white">Send</Text>
+          <Text className="text-base text-primary-foreground">➤</Text>
         </Pressable>
       </View>
     </KeyboardAvoidingView>

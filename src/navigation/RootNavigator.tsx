@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import AppNavigator from './AppNavigator'
 import AuthNavigator from './AuthNavigator'
 import { selectIsAuthenticated, useAuthStore } from '../store/auth'
+import { colors } from '../theme'
 
 type RootParamList = {
   Auth: undefined
@@ -17,8 +18,8 @@ export default function RootNavigator() {
 
   if (!hydrated) {
     return (
-      <View className="flex-1 items-center justify-center bg-gray-50">
-        <ActivityIndicator />
+      <View className="flex-1 items-center justify-center bg-background">
+        <ActivityIndicator color={colors.primary} />
       </View>
     )
   }

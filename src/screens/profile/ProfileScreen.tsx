@@ -1,12 +1,17 @@
 import { useState } from 'react'
 import { Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import * as ImagePicker from 'expo-image-picker'
 import { ApiError, api } from '../../lib/api'
 import { uploadFile } from '../../lib/upload'
 import { useAuthStore } from '../../store/auth'
 import { useChatStore } from '../../store/chat'
+import { colors } from '../../theme'
 import type { ApiResponse, UpdateProfileRequest, UserDTO } from '../../types'
 import type { ProfileScreenProps } from '../../types/navigation'
+
+const inputClass = 'rounded-2xl border border-border bg-surface-2 px-4 py-3 text-sm text-foreground'
+const labelClass = 'mb-1.5 text-xs font-semibold tracking-wider text-muted-foreground uppercase'
 
 export default function ProfileScreen(_props: ProfileScreenProps) {
   const user = useAuthStore((s) => s.user)
@@ -118,99 +123,136 @@ export default function ProfileScreen(_props: ProfileScreenProps) {
   }
 
   return (
-    <ScrollView className="flex-1 bg-gray-50" contentContainerClassName="pb-12">
-      <View className="px-6 pt-12">
-        {!user.isVerified && (
-          <View className="mb-6 rounded-md border border-yellow-200 bg-yellow-50 p-4">
-            <Text className="text-sm text-yellow-900">Your email isn&apos;t verified.</Text>
-            <Pressable onPress={onResendVerify} disabled={verifySending} className="mt-2">
-              <Text className="text-sm font-medium text-yellow-900 underline">
-                {verifySending ? 'Sending…' : 'Send verification email'}
-              </Text>
-            </Pressable>
-            {verifyMessage && <Text className="mt-2 text-sm text-yellow-900">{verifyMessage}</Text>}
-          </View>
-        )}
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      <ScrollView className="flex-1" contentContainerClassName="pb-12">
+        <View className="px-5 pt-4">
+          <Text className="text-2xl font-bold text-foreground">Profile</Text>
+          <Text className="mt-1 text-sm text-muted-foreground">
+            Manage how others see you on Sandeshak.
+          </Text>
 
-        {/* Avatar */}
-        <View className="rounded-xl bg-white p-6 shadow-sm">
-          <Text className="text-sm font-medium text-gray-700">Profile photo</Text>
-          <View className="mt-4 flex-row items-center gap-4">
-            <View className="h-20 w-20 overflow-hidden rounded-full bg-gray-200">
-              {user.avatarUrl ? (
-                <Image source={{ uri: user.avatarUrl }} className="h-full w-full" />
-              ) : (
-                <View className="h-full w-full items-center justify-center">
-                  <Text className="text-2xl font-medium text-gray-500">
+          {!user.isVerified && (
+            <View className="mt-6 rounded-2xl border border-warning/40 bg-warning/10 p-4">
+              <View className="flex-row items-start gap-3">
+                <View className="h-8 w-8 items-center justify-center rounded-full bg-warning/20">
+                  <Text className="text-base">⚠️</Text>
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm font-semibold text-warning">Email not verified</Text>
+                  <Text className="mt-0.5 text-xs text-warning/90">
+                    Some features may be limited until you verify your email.
+                  </Text>
+                  <Pressable onPress={onResendVerify} disabled={verifySending} className="mt-2">
+                    <Text className="text-xs font-semibold text-warning underline">
+                      {verifySending ? 'Sending…' : 'Send verification email'}
+                    </Text>
+                  </Pressable>
+                  {verifyMessage && (
+                    <Text className="mt-2 text-xs text-warning/90">{verifyMessage}</Text>
+                  )}
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Avatar */}
+          <View className="mt-6 rounded-3xl border border-border bg-surface p-5">
+            <Text className="text-sm font-semibold text-foreground">Profile photo</Text>
+            <View className="mt-4 flex-row items-center gap-4">
+              <View
+                className="h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-primary"
+                style={{ borderWidth: 2, borderColor: colors.border }}
+              >
+                {user.avatarUrl ? (
+                  <Image source={{ uri: user.avatarUrl }} className="h-full w-full" />
+                ) : (
+                  <Text className="text-2xl font-semibold text-primary-foreground">
                     {user.name.charAt(0).toUpperCase()}
                   </Text>
-                </View>
-              )}
+                )}
+              </View>
+              <Pressable
+                onPress={onPickAvatar}
+                disabled={uploading}
+                className="rounded-2xl border border-border bg-surface-2 px-4 py-2.5 active:bg-surface-hover disabled:opacity-50"
+              >
+                <Text className="text-sm font-medium text-foreground">
+                  {uploading ? 'Uploading…' : 'Change photo'}
+                </Text>
+              </Pressable>
             </View>
+            {uploadError && <Text className="mt-3 text-sm text-destructive">{uploadError}</Text>}
+          </View>
+
+          {/* Profile fields */}
+          <View className="mt-5 rounded-3xl border border-border bg-surface p-5">
+            <Text className="text-sm font-semibold text-foreground">About you</Text>
+
+            <View className="mt-4 gap-4">
+              <View>
+                <Text className={labelClass}>Name</Text>
+                <TextInput
+                  value={name}
+                  onChangeText={setName}
+                  maxLength={100}
+                  placeholderTextColor={colors.mutedForeground}
+                  className={inputClass}
+                />
+              </View>
+
+              <View>
+                <Text className={labelClass}>Email</Text>
+                <TextInput
+                  value={user.email}
+                  editable={false}
+                  className="rounded-2xl border border-border bg-surface px-4 py-3 text-sm text-muted-foreground"
+                />
+              </View>
+
+              <View>
+                <Text className={labelClass}>Bio</Text>
+                <TextInput
+                  value={bio}
+                  onChangeText={setBio}
+                  maxLength={139}
+                  multiline
+                  numberOfLines={3}
+                  placeholder="Say something about yourself…"
+                  placeholderTextColor={colors.mutedForeground}
+                  className={inputClass}
+                  style={{ textAlignVertical: 'top', minHeight: 72 }}
+                />
+                <Text className="mt-1 text-right text-[11px] text-muted-foreground">
+                  {bio.length}/139
+                </Text>
+              </View>
+            </View>
+
+            {profileError && (
+              <View className="mt-3 rounded-xl border border-destructive/50 bg-destructive/10 px-3 py-2">
+                <Text className="text-sm text-destructive">{profileError}</Text>
+              </View>
+            )}
+
             <Pressable
-              onPress={onPickAvatar}
-              disabled={uploading}
-              className="rounded-md border border-gray-300 bg-white px-4 py-2 active:bg-gray-100 disabled:opacity-50"
+              onPress={onSaveProfile}
+              disabled={savingProfile}
+              className="mt-5 rounded-2xl bg-primary px-4 py-3.5 active:bg-primary-hover disabled:opacity-50"
             >
-              <Text className="text-sm font-medium text-gray-700">
-                {uploading ? 'Uploading…' : 'Change photo'}
+              <Text className="text-center text-sm font-semibold text-primary-foreground">
+                {savingProfile ? 'Saving…' : 'Save changes'}
               </Text>
             </Pressable>
           </View>
-          {uploadError && <Text className="mt-3 text-sm text-red-600">{uploadError}</Text>}
-        </View>
-
-        {/* Profile fields */}
-        <View className="mt-6 rounded-xl bg-white p-6 shadow-sm">
-          <Text className="text-sm font-medium text-gray-700">About you</Text>
-
-          <Text className="mt-4 text-sm font-medium text-gray-700">Name</Text>
-          <TextInput
-            value={name}
-            onChangeText={setName}
-            maxLength={100}
-            className="mt-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900"
-          />
-
-          <Text className="mt-4 text-sm font-medium text-gray-700">Email</Text>
-          <TextInput
-            value={user.email}
-            editable={false}
-            className="mt-1 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-500"
-          />
-
-          <Text className="mt-4 text-sm font-medium text-gray-700">Bio</Text>
-          <TextInput
-            value={bio}
-            onChangeText={setBio}
-            maxLength={139}
-            multiline
-            numberOfLines={3}
-            className="mt-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900"
-            style={{ textAlignVertical: 'top', minHeight: 72 }}
-          />
-          <Text className="mt-1 text-xs text-gray-400">{bio.length}/139</Text>
-
-          {profileError && <Text className="mt-3 text-sm text-red-600">{profileError}</Text>}
 
           <Pressable
-            onPress={onSaveProfile}
-            disabled={savingProfile}
-            className="mt-6 rounded-md bg-blue-600 px-4 py-2.5 active:bg-blue-700 disabled:opacity-50"
+            onPress={onLogout}
+            className="mt-5 rounded-2xl border border-border bg-surface px-4 py-3.5 active:bg-surface-hover"
           >
-            <Text className="text-center text-sm font-medium text-white">
-              {savingProfile ? 'Saving…' : 'Save changes'}
-            </Text>
+            <Text className="text-center text-sm font-semibold text-destructive">Log out</Text>
           </Pressable>
         </View>
-
-        <Pressable
-          onPress={onLogout}
-          className="mt-6 rounded-md bg-white px-4 py-3 shadow-sm active:bg-gray-100"
-        >
-          <Text className="text-center text-sm font-medium text-red-600">Log out</Text>
-        </Pressable>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   )
 }
