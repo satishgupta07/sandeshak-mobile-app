@@ -3,13 +3,13 @@ import {
   ActivityIndicator,
   FlatList,
   Keyboard,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   Text,
   TextInput,
   View,
 } from 'react-native'
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller'
 import { useHeaderHeight } from '@react-navigation/elements'
 import { ApiError, api } from '../../lib/api'
 import { getSocket } from '../../lib/socket'
@@ -246,7 +246,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-background"
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior="padding"
       keyboardVerticalOffset={headerHeight}
     >
       {(statusLine || !isConnected) && (
